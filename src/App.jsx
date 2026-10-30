@@ -192,7 +192,7 @@ export default function App() {
     setStep("saving");
     setProgress({ title: "Saving…", done: 0, total });
     const toDrive = kind.startsWith("drive");
-    const title = toDrive && mode === "move" ? "Moving photos into folders" : "Saving your folders";
+    const title = "Saving your folders";
     const onProgress = p => setProgress({ title, ...p });
     try {
       const counts = {};

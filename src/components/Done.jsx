@@ -13,7 +13,8 @@ export default function Done({ result, onAgain, onBack }) {
       <p className="card-sub">{WHERE[result.kind](result)}</p>
       <p className="muted">
         {result.photoCount} photo{result.photoCount === 1 ? "" : "s"} sorted.
-        {result.mode === "move" && " Each photo is stored once; photos with more than one person have shortcuts in the other folders."}
+        {" Your original photos were not changed."}
+        {result.mode === "shortcut" && " The folders contain shortcuts to them."}
       </p>
       <ul className="count-list">
         {result.counts.map(([name, n]) => (

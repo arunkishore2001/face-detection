@@ -183,19 +183,7 @@ export class DriveWriter {
     t.existing.add(fileName);
   }
 
-  /** Move a photo that is already in Drive into the person's folder (no duplicate, no extra storage). */
-  async move(fileId, fileName, person) {
-    const t = await this.target(person);
-    if (t.existing.has(fileName)) return;
-    const { parents = [] } = await json(`${API}/files/${fileId}?fields=parents&supportsAllDrives=true`);
-    const params = new URLSearchParams({ addParents: t.id, removeParents: parents.join(","), supportsAllDrives: "true", fields: "id" });
-    await json(`${API}/files/${fileId}?${params}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json" }, body: "{}",
-    });
-    t.existing.add(fileName);
-  }
-
-  /** A Drive shortcut to a photo kept in another folder (takes no storage). */
+  /** A Drive shortcut to a photo that stays in its own folder (takes no storage). */
   async shortcut(fileId, fileName, person) {
     const t = await this.target(person);
     if (t.existing.has(fileName)) return;

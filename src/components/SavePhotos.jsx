@@ -4,11 +4,11 @@ import { canPickFolder } from "../lib/save.js";
 import { GROUP_FOLDER, GROUP_MIN_PEOPLE, UNKNOWN_FOLDER } from "../lib/constants.js";
 
 const MODES_DRIVE = [
-  ["move", "Move (recommended)", "Each photo is moved into one folder. Other people's folders get a shortcut to it. No duplicates, no extra storage."],
-  ["copy", "Copy", "Photos stay where they are and every folder gets its own copy. Uses more Drive storage."],
+  ["copy", "Copy (recommended)", "Each folder gets its own real copy of the photo. Uses Drive storage for the copies."],
+  ["shortcut", "Shortcuts only", "Each folder gets a shortcut to the photo. Uses no extra storage, but shortcuts can't be downloaded as files."],
 ];
 const MODES_UPLOAD = [
-  ["move", "Upload once (recommended)", "Each photo is uploaded once; other people's folders get a shortcut to it."],
+  ["once", "Upload once (recommended)", "Each photo is uploaded once; other people's folders get a shortcut to it."],
   ["copy", "Upload to every folder", "Every folder gets its own copy. Slower and uses more storage."],
 ];
 
@@ -23,8 +23,8 @@ export default function SavePhotos({
   canSave, folderCounts, account, onSignIn, onBack, onSave,
 }) {
   const [uploadLink, setUploadLink] = useState("");
-  const [mode, setMode] = useState(() => { try { return localStorage.getItem("fs-drive-mode") || "move"; } catch { return "move"; } });
-  const chooseMode = m => { setMode(m); try { localStorage.setItem("fs-drive-mode", m); } catch { /* ignore */ } };
+  const [mode, setMode] = useState(driveFolder ? "copy" : "once");
+  const chooseMode = setMode;
   const modeChoice = (
     <fieldset className="mode-choice">
       <legend className="sr-only">How to save in Google Drive</legend>
@@ -104,12 +104,13 @@ export default function SavePhotos({
             <div>
               <h2 className="dest-title">Save in Google Drive</h2>
               <p className="muted small">Creates <strong>Sorted by Face</strong> inside “{driveFolder.name}”, with a folder per person.</p>
+              <p className="safe small">✓ Your original photos are not moved, renamed or changed.</p>
               {!driveFolder.canAdd && <p className="note warn small">You may not have permission to add folders here.</p>}
             </div>
             {modeChoice}
             <div className="row end">
               <button className="btn btn-primary" disabled={!canSave} onClick={() => onSave("drive-here", null, mode)}>
-                {mode === "move" ? "Move into folders" : "Copy into folders"}
+                {mode === "shortcut" ? "Add shortcuts" : "Copy into folders"}
               </button>
             </div>
           </div>
