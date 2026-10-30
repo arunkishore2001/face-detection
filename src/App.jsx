@@ -51,7 +51,7 @@ export default function App() {
   const [people, setPeople] = useState({});
   const [names, setNames] = useState({});
   const [excluded, setExcluded] = useState(() => new Set());
-  const [groupMode, setGroupMode] = useState(() => stored("fs-group-mode") || "both"); // both | only | off
+  const [groupMode, setGroupMode] = useState(() => stored("fs-group-mode-v2") || "only"); // only | both | off
   const [progress, setProgress] = useState(null);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
@@ -61,7 +61,7 @@ export default function App() {
 
   useEffect(() => { getAccount().then(setAccount); loadPeople().then(setPeople); }, []);
   useEffect(() => { try { localStorage.setItem("fs-source", source); } catch { /* ignore */ } }, [source]);
-  useEffect(() => { try { localStorage.setItem("fs-group-mode", groupMode); } catch { /* ignore */ } }, [groupMode]);
+  useEffect(() => { try { localStorage.setItem("fs-group-mode-v2", groupMode); } catch { /* ignore */ } }, [groupMode]);
 
   const busy = step === "scanning" || step === "saving";
   const hasWork = faces.length > 0 && step !== "done";
@@ -80,7 +80,7 @@ export default function App() {
 
   // Which folders each photo goes into: the typed names (same name on two cards = same person),
   // plus "Group Photos" for photos with GROUP_MIN_PEOPLE or more faces.
-  const { assignments, perName, groupPhotoCount } = useMemo(() => {
+  const { assignments, perName, groupPhotoCount, folderCounts } = useMemo(() => {
     const byPhoto = new Map(), perName = {};
     for (const g of groups) {
       const name = cleanName(nameOf(g));
@@ -107,7 +107,9 @@ export default function App() {
     }
 
     const assignments = [...byPhoto].map(([photo, set]) => ({ photo, names: [...set].sort() }));
-    return { assignments, perName, groupPhotoCount };
+    const folderCounts = {};
+    assignments.forEach(a => a.names.forEach(n => { folderCounts[n] = (folderCounts[n] || 0) + 1; }));
+    return { assignments, perName, groupPhotoCount, folderCounts };
   }, [groups, names, excluded, faces, groupMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSignIn() {
@@ -276,7 +278,7 @@ export default function App() {
           <SavePhotos
             perName={perName} photos={photos} driveFolder={driveFolder}
             groupMode={groupMode} setGroupMode={setGroupMode} groupPhotoCount={groupPhotoCount}
-            canSave={assignments.length > 0}
+            canSave={assignments.length > 0} folderCounts={folderCounts}
             account={account} onSignIn={handleSignIn}
             onBack={() => setStep("faces")} onSave={save}
           />

@@ -13,13 +13,13 @@ const MODES_UPLOAD = [
 ];
 
 const GROUP_OPTIONS = [
-  ["both", "Group Photos folder and each person's folder"],
-  ["only", "Only the Group Photos folder"],
+  ["only", "Only in Group Photos (not in each person's folder)"],
+  ["both", "In Group Photos and in each person's folder"],
   ["off", "Don't make a Group Photos folder"],
 ];
 
 export default function SavePhotos({
-  perName, photos, driveFolder, groupMode, setGroupMode, groupPhotoCount, canSave, account, onSignIn, onBack, onSave,
+  perName, photos, driveFolder, groupMode, setGroupMode, groupPhotoCount, canSave, folderCounts, account, onSignIn, onBack, onSave,
 }) {
   const [uploadLink, setUploadLink] = useState("");
   const [mode, setMode] = useState(() => { try { return localStorage.getItem("fs-drive-mode") || "move"; } catch { return "move"; } });
@@ -35,12 +35,12 @@ export default function SavePhotos({
       ))}
     </fieldset>
   );
-  const people = Object.entries(perName).sort((a, b) => b[1].photos.size - a[1].photos.size);
+  const people = Object.entries(perName).sort((a, b) => (folderCounts[b[0]] || 0) - (folderCounts[a[0]] || 0));
 
   return (
     <section className="card">
       <h1 className="card-title">Save into folders</h1>
-      <p className="card-sub">Each person gets a folder, and photos of {GROUP_MIN_PEOPLE} or more people can also go into a <strong>{GROUP_FOLDER}</strong> folder. Your originals are not changed.</p>
+      <p className="card-sub">Each person gets a folder. Photos with {GROUP_MIN_PEOPLE} or more people go into a <strong>{GROUP_FOLDER}</strong> folder.</p>
 
       <ul className="people-list">
         {people.map(([name, v]) => {
@@ -49,7 +49,7 @@ export default function SavePhotos({
             <li key={name}>
               <img src={cover.crop} alt="" />
               <span className="people-name">{name}</span>
-              <span className="muted small">{v.photos.size} photo{v.photos.size === 1 ? "" : "s"}</span>
+              <span className="muted small">{folderCounts[name] || 0} photo{folderCounts[name] === 1 ? "" : "s"}</span>
             </li>
           );
         })}
