@@ -11,6 +11,10 @@ export default function Done({ result, onAgain, onBack }) {
       <div className="done-mark" aria-hidden="true">✓</div>
       <h1 className="card-title">Your folders are ready</h1>
       <p className="card-sub">{WHERE[result.kind](result)}</p>
+      <p className="muted">
+        {result.photoCount} photo{result.photoCount === 1 ? "" : "s"} sorted.
+        {result.mode === "move" && " Each photo is stored once; photos with more than one person have shortcuts in the other folders."}
+      </p>
       <ul className="count-list">
         {result.counts.map(([name, n]) => (
           <li key={name}><span>📁 {name}</span><span className="muted">{n} photo{n === 1 ? "" : "s"}</span></li>

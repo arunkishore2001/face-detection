@@ -174,23 +174,25 @@ export default function App() {
     }
   }
 
-  async function save(kind, uploadLink) {
+  async function save(kind, uploadLink, mode = "copy") {
     setError(null);
     const total = assignments.length;
     setStep("saving");
     setProgress({ title: "Saving…", done: 0, total });
-    const onProgress = p => setProgress({ title: "Saving your folders", ...p });
+    const toDrive = kind.startsWith("drive");
+    const title = toDrive && mode === "move" ? "Moving photos into folders" : "Saving your folders";
+    const onProgress = p => setProgress({ title, ...p });
     try {
       const counts = {};
       assignments.forEach(a => a.names.forEach(n => { counts[n] = (counts[n] || 0) + 1; }));
-      const out = { kind, counts: Object.entries(counts).sort((a, b) => (a[0] === GROUP_FOLDER) - (b[0] === GROUP_FOLDER) || b[1] - a[1]) };
+      const out = { kind, mode: toDrive ? mode : "copy", photoCount: assignments.length, counts: Object.entries(counts).sort((a, b) => (a[0] === GROUP_FOLDER) - (b[0] === GROUP_FOLDER) || b[1] - a[1]) };
       if (kind === "drive-here") {
-        out.url = await saveToDrive({ parentId: driveFolder.id, assignments, photos, onProgress });
+        out.url = await saveToDrive({ parentId: driveFolder.id, assignments, photos, mode, onProgress });
         out.where = driveFolder.name;
       } else if (kind === "drive-upload") {
         const id = parseFolderId(uploadLink);
         const folder = await getFolder(id);
-        out.url = await saveToDrive({ parentId: id, assignments, photos, onProgress });
+        out.url = await saveToDrive({ parentId: id, assignments, photos, mode, onProgress });
         out.where = folder.name;
       } else if (kind === "folder") {
         out.where = await saveToComputerFolder({ assignments, photos, onProgress });

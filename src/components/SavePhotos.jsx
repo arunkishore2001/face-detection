@@ -3,6 +3,15 @@ import { googleConfigured } from "../lib/google.js";
 import { canPickFolder } from "../lib/save.js";
 import { GROUP_FOLDER, GROUP_MIN_PEOPLE } from "../lib/constants.js";
 
+const MODES_DRIVE = [
+  ["move", "Move (recommended)", "Each photo is moved into one folder. Other people's folders get a shortcut to it. No duplicates, no extra storage."],
+  ["copy", "Copy", "Photos stay where they are and every folder gets its own copy. Uses more Drive storage."],
+];
+const MODES_UPLOAD = [
+  ["move", "Upload once (recommended)", "Each photo is uploaded once; other people's folders get a shortcut to it."],
+  ["copy", "Upload to every folder", "Every folder gets its own copy. Slower and uses more storage."],
+];
+
 const GROUP_OPTIONS = [
   ["both", "Group Photos folder and each person's folder"],
   ["only", "Only the Group Photos folder"],
@@ -13,6 +22,19 @@ export default function SavePhotos({
   perName, photos, driveFolder, groupMode, setGroupMode, groupPhotoCount, canSave, account, onSignIn, onBack, onSave,
 }) {
   const [uploadLink, setUploadLink] = useState("");
+  const [mode, setMode] = useState(() => { try { return localStorage.getItem("fs-drive-mode") || "move"; } catch { return "move"; } });
+  const chooseMode = m => { setMode(m); try { localStorage.setItem("fs-drive-mode", m); } catch { /* ignore */ } };
+  const modeChoice = (
+    <fieldset className="mode-choice">
+      <legend className="sr-only">How to save in Google Drive</legend>
+      {(driveFolder ? MODES_DRIVE : MODES_UPLOAD).map(([value, title, text]) => (
+        <label key={value} className={`mode ${mode === value ? "selected" : ""}`}>
+          <input type="radio" name="drive-mode" value={value} checked={mode === value} onChange={() => chooseMode(value)} />
+          <span><strong>{title}</strong><br /><span className="muted small">{text}</span></span>
+        </label>
+      ))}
+    </fieldset>
+  );
   const people = Object.entries(perName).sort((a, b) => b[1].photos.size - a[1].photos.size);
 
   return (
@@ -57,16 +79,21 @@ export default function SavePhotos({
 
       <div className="dest-list">
         {driveFolder ? (
-          <div className="dest primary">
+          <div className="dest primary column">
             <div>
               <h2 className="dest-title">Save in Google Drive</h2>
               <p className="muted small">Creates <strong>Sorted by Face</strong> inside “{driveFolder.name}”, with a folder per person.</p>
               {!driveFolder.canAdd && <p className="note warn small">You may not have permission to add folders here.</p>}
             </div>
-            <button className="btn btn-primary" disabled={!canSave} onClick={() => onSave("drive-here")}>Save to Drive</button>
+            {modeChoice}
+            <div className="row end">
+              <button className="btn btn-primary" disabled={!canSave} onClick={() => onSave("drive-here", null, mode)}>
+                {mode === "move" ? "Move into folders" : "Copy into folders"}
+              </button>
+            </div>
           </div>
         ) : googleConfigured && (
-          <div className="dest primary">
+          <div className="dest primary column">
             <div className="grow">
               <h2 className="dest-title">Upload to Google Drive</h2>
               {account ? (
@@ -77,9 +104,12 @@ export default function SavePhotos({
                 </label>
               ) : <p className="muted small">Sign in to upload the folders to your Drive.</p>}
             </div>
-            {account
-              ? <button className="btn btn-primary" disabled={!canSave || !uploadLink.trim()} onClick={() => onSave("drive-upload", uploadLink)}>Upload</button>
-              : <button className="btn btn-secondary" onClick={onSignIn}>Sign in with Google</button>}
+            {account && modeChoice}
+            <div className="row end">
+              {account
+                ? <button className="btn btn-primary" disabled={!canSave || !uploadLink.trim()} onClick={() => onSave("drive-upload", uploadLink, mode)}>Upload</button>
+                : <button className="btn btn-secondary" onClick={onSignIn}>Sign in with Google</button>}
+            </div>
           </div>
         )}
 
@@ -105,7 +135,7 @@ export default function SavePhotos({
       <div className="actions start">
         <button className="btn btn-ghost" onClick={onBack}>← Back to names</button>
       </div>
-      <p className="muted small">{photos.length} photos scanned.</p>
+      <p className="muted small">{photos.length} photos scanned · {groupPhotoCount} with {GROUP_MIN_PEOPLE}+ people.</p>
     </section>
   );
 }

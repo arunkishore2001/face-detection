@@ -216,6 +216,14 @@ input[type=url]:focus, input[type=text]:focus { border-color: var(--accent); out
 .dest-title { font-size: 17px; margin: 0 0 2px; }
 .dest p { margin: 0; }
 .dest .field { margin-top: 8px; }
+.dest.column { flex-direction: column; align-items: stretch; }
+.row.end { justify-content: flex-end; }
+.mode-choice { border: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+.mode { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border: 1.5px solid var(--line);
+        border-radius: 12px; background: var(--surface); cursor: pointer; }
+.mode.selected { border-color: var(--accent); }
+.mode input { margin-top: 4px; accent-color: var(--accent); width: 18px; height: 18px; flex: none; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* ---------- done ---------- */
 .done-mark { width: 72px; height: 72px; border-radius: 50%; background: var(--accent); color: var(--accent-ink);

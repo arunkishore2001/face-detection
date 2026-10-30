@@ -2,8 +2,9 @@
 const CLIENT_ID = __GOOGLE_CLIENT_ID__; // set from GOOGLE_CLIENT_ID at build time (vite.config.js)
 const SCOPE = "https://www.googleapis.com/auth/drive";
 const API = "https://www.googleapis.com/drive/v3";
-const UPLOAD = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true";
+const UPLOAD = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id";
 const FOLDER = "application/vnd.google-apps.folder";
+const SHORTCUT = "application/vnd.google-apps.shortcut";
 const TOKEN_KEY = "fs-google-token";
 export const OUTPUT_FOLDER = "Sorted by Face";
 export const IMAGE_RE = /\.(jpe?g|png|webp|bmp|gif|heic|heif)$/i;
@@ -182,14 +183,39 @@ export class DriveWriter {
     t.existing.add(fileName);
   }
 
-  /** Upload a photo from this computer. */
-  async upload(file, person) {
+  /** Move a photo that is already in Drive into the person's folder (no duplicate, no extra storage). */
+  async move(fileId, fileName, person) {
     const t = await this.target(person);
-    if (t.existing.has(file.name)) return;
+    if (t.existing.has(fileName)) return;
+    const { parents = [] } = await json(`${API}/files/${fileId}?fields=parents&supportsAllDrives=true`);
+    const params = new URLSearchParams({ addParents: t.id, removeParents: parents.join(","), supportsAllDrives: "true", fields: "id" });
+    await json(`${API}/files/${fileId}?${params}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: "{}",
+    });
+    t.existing.add(fileName);
+  }
+
+  /** A Drive shortcut to a photo kept in another folder (takes no storage). */
+  async shortcut(fileId, fileName, person) {
+    const t = await this.target(person);
+    if (t.existing.has(fileName)) return;
+    await json(`${API}/files?supportsAllDrives=true&fields=id`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: fileName, mimeType: SHORTCUT, shortcutDetails: { targetId: fileId }, parents: [t.id] }),
+    });
+    t.existing.add(fileName);
+  }
+
+  /** Upload a photo from this computer. Returns the new file's id. */
+  async upload(file, fileName, person) {
+    const t = await this.target(person);
+    if (t.existing.has(fileName)) return null;
     const form = new FormData();
-    form.append("metadata", new Blob([JSON.stringify({ name: file.name, parents: [t.id] })], { type: "application/json" }));
+    form.append("metadata", new Blob([JSON.stringify({ name: fileName, parents: [t.id] })], { type: "application/json" }));
     form.append("file", file);
-    await authFetch(UPLOAD, { method: "POST", body: form });
-    t.existing.add(file.name);
+    const { id } = await (await authFetch(UPLOAD, { method: "POST", body: form })).json();
+    t.existing.add(fileName);
+    return id;
   }
 }
