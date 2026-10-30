@@ -43,13 +43,13 @@ In https://console.cloud.google.com, in your Face Sorter project (Drive API alre
 2. On https://vercel.com → **Add New → Project** → import the repository.
    - If the repo contains more than this app, set **Root Directory** to `face-sorter-web`.
    - Framework preset: **Vite** (detected automatically).
-3. **Environment Variables**: `VITE_GOOGLE_CLIENT_ID` = your client ID.
+3. **Environment Variables**: `GOOGLE_CLIENT_ID` = your client ID.
 4. **Deploy**. Then add the `https://….vercel.app` address to the client's Authorized JavaScript origins.
 
 **Option B – Vercel CLI**
 ```
 npx vercel                       (first time: log in and link the project)
-npx vercel env add VITE_GOOGLE_CLIENT_ID
+npx vercel env add GOOGLE_CLIENT_ID
 npx vercel --prod
 ```
 

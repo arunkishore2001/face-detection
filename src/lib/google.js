@@ -1,5 +1,5 @@
 // Google sign-in (Google Identity Services) and the Google Drive calls the app needs.
-const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+const CLIENT_ID = __GOOGLE_CLIENT_ID__; // set from GOOGLE_CLIENT_ID at build time (vite.config.js)
 const SCOPE = "https://www.googleapis.com/auth/drive";
 const API = "https://www.googleapis.com/drive/v3";
 const UPLOAD = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true";
@@ -35,7 +35,7 @@ export const hasValidToken = () => Boolean(token && token.expiresAt > Date.now()
 
 /** Opens Google's sign-in popup. Must be called from a click. */
 export async function signIn(prompt = "") {
-  if (!googleConfigured) throw new Error("Google sign-in is not set up (VITE_GOOGLE_CLIENT_ID is missing).");
+  if (!googleConfigured) throw new Error("Google sign-in is not set up (GOOGLE_CLIENT_ID is missing).");
   await loadGis();
   const response = await new Promise((resolve, reject) => {
     const client = window.google.accounts.oauth2.initTokenClient({

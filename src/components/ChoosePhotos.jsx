@@ -47,7 +47,7 @@ export default function ChoosePhotos({
       {source === "drive" && (
         <div className="panel">
           {!googleConfigured ? (
-            <p className="note warn">Google sign-in isn't set up for this site yet (missing <code>VITE_GOOGLE_CLIENT_ID</code>).</p>
+            <p className="note warn">Google sign-in isn't set up for this site yet (missing <code>GOOGLE_CLIENT_ID</code>).</p>
           ) : !account ? (
             <div className="signin-box">
               <p>Sign in so Face Sorter can read the folder and create the person folders in it.</p>
