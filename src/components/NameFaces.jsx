@@ -65,7 +65,7 @@ export default function NameFaces({
         <button className="btn btn-ghost" onClick={onBack}>← Back</button>
         <span className="muted">
           {namedCount ? `${namedCount} ${namedCount === 1 ? "person" : "people"} named`
-            : canContinue ? "No names yet – only Group Photos will be saved" : "Name at least one person"}
+            : canContinue ? "No names yet – photos go to Group Photos / Not Recognised" : "Name at least one person"}
         </span>
         <button className="btn btn-primary" disabled={!canContinue} onClick={onNext}>Continue →</button>
       </div>

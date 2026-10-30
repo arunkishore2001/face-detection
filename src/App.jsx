@@ -12,7 +12,7 @@ import { getAccount, getFolder, listPhotos, downloadFile, parseFolderId, signIn,
 import { scanPhotos, makeGroups } from "./lib/faces.js";
 import { loadPeople, rememberPeople, forgetEveryone, forgetPerson } from "./lib/people.js";
 import { saveToDrive, saveToComputerFolder, saveAsZip } from "./lib/save.js";
-import { DEFAULT_GROUPING, GROUP_FOLDER, GROUP_MIN_PEOPLE, cleanName } from "./lib/constants.js";
+import { DEFAULT_GROUPING, GROUP_FOLDER, GROUP_MIN_PEOPLE, UNKNOWN_FOLDER, SPECIAL_FOLDERS, cleanName } from "./lib/constants.js";
 
 const stored = key => { try { return localStorage.getItem(key); } catch { return null; } };
 
@@ -62,6 +62,8 @@ export default function App() {
   useEffect(() => { getAccount().then(setAccount); loadPeople().then(setPeople); }, []);
   useEffect(() => { try { localStorage.setItem("fs-source", source); } catch { /* ignore */ } }, [source]);
   useEffect(() => { try { localStorage.setItem("fs-group-mode-v2", groupMode); } catch { /* ignore */ } }, [groupMode]);
+  const [unknownFolder, setUnknownFolder] = useState(() => stored("fs-unknown-folder") !== "off");
+  useEffect(() => { try { localStorage.setItem("fs-unknown-folder", unknownFolder ? "on" : "off"); } catch { /* ignore */ } }, [unknownFolder]);
 
   const busy = step === "scanning" || step === "saving";
   const hasWork = faces.length > 0 && step !== "done";
@@ -80,7 +82,7 @@ export default function App() {
 
   // Which folders each photo goes into: the typed names (same name on two cards = same person),
   // plus "Group Photos" for photos with GROUP_MIN_PEOPLE or more faces.
-  const { assignments, perName, groupPhotoCount, folderCounts } = useMemo(() => {
+  const { assignments, perName, groupPhotoCount, unknownCount, folderCounts } = useMemo(() => {
     const byPhoto = new Map(), perName = {};
     for (const g of groups) {
       const name = cleanName(nameOf(g));
@@ -106,11 +108,19 @@ export default function App() {
       byPhoto.set(photo, set);
     }
 
+    // everything nobody was found in goes to "Not Recognised"
+    let unknownCount = 0;
+    for (let i = 0; i < photos.length; i++) {
+      if (byPhoto.has(i)) continue;
+      unknownCount++;
+      if (unknownFolder) byPhoto.set(i, new Set([UNKNOWN_FOLDER]));
+    }
+
     const assignments = [...byPhoto].map(([photo, set]) => ({ photo, names: [...set].sort() }));
     const folderCounts = {};
     assignments.forEach(a => a.names.forEach(n => { folderCounts[n] = (folderCounts[n] || 0) + 1; }));
-    return { assignments, perName, groupPhotoCount, folderCounts };
-  }, [groups, names, excluded, faces, groupMode]); // eslint-disable-line react-hooks/exhaustive-deps
+    return { assignments, perName, groupPhotoCount, unknownCount, folderCounts };
+  }, [groups, names, excluded, faces, photos, groupMode, unknownFolder]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSignIn() {
     setError(null);
@@ -187,7 +197,7 @@ export default function App() {
     try {
       const counts = {};
       assignments.forEach(a => a.names.forEach(n => { counts[n] = (counts[n] || 0) + 1; }));
-      const out = { kind, mode: toDrive ? mode : "copy", photoCount: assignments.length, counts: Object.entries(counts).sort((a, b) => (a[0] === GROUP_FOLDER) - (b[0] === GROUP_FOLDER) || b[1] - a[1]) };
+      const out = { kind, mode: toDrive ? mode : "copy", photoCount: assignments.length, counts: Object.entries(counts).sort((a, b) => SPECIAL_FOLDERS.indexOf(a[0]) - SPECIAL_FOLDERS.indexOf(b[0]) || b[1] - a[1]) };
       if (kind === "drive-here") {
         out.url = await saveToDrive({ parentId: driveFolder.id, assignments, photos, mode, onProgress });
         out.where = driveFolder.name;
@@ -278,6 +288,7 @@ export default function App() {
           <SavePhotos
             perName={perName} photos={photos} driveFolder={driveFolder}
             groupMode={groupMode} setGroupMode={setGroupMode} groupPhotoCount={groupPhotoCount}
+            unknownFolder={unknownFolder} setUnknownFolder={setUnknownFolder} unknownCount={unknownCount}
             canSave={assignments.length > 0} folderCounts={folderCounts}
             account={account} onSignIn={handleSignIn}
             onBack={() => setStep("faces")} onSave={save}

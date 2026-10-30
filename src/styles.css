@@ -207,6 +207,7 @@ input[type=url]:focus, input[type=text]:focus { border-color: var(--accent); out
 .people-list img, .group-icon { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
 .group-icon { display: grid; place-items: center; background: var(--accent-soft); font-size: 18px; }
 .people-name { font-weight: 600; }
+.unknown-option { margin: 0 0 16px; padding: 12px 16px; border: 1px solid var(--line); border-radius: 12px; }
 .group-option { border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; margin: 0 0 20px; }
 .group-option legend { padding: 0 6px; }
 .dest-list { display: grid; gap: 12px; }

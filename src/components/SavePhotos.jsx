@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { googleConfigured } from "../lib/google.js";
 import { canPickFolder } from "../lib/save.js";
-import { GROUP_FOLDER, GROUP_MIN_PEOPLE } from "../lib/constants.js";
+import { GROUP_FOLDER, GROUP_MIN_PEOPLE, UNKNOWN_FOLDER } from "../lib/constants.js";
 
 const MODES_DRIVE = [
   ["move", "Move (recommended)", "Each photo is moved into one folder. Other people's folders get a shortcut to it. No duplicates, no extra storage."],
@@ -19,7 +19,8 @@ const GROUP_OPTIONS = [
 ];
 
 export default function SavePhotos({
-  perName, photos, driveFolder, groupMode, setGroupMode, groupPhotoCount, canSave, folderCounts, account, onSignIn, onBack, onSave,
+  perName, photos, driveFolder, groupMode, setGroupMode, groupPhotoCount, unknownFolder, setUnknownFolder, unknownCount,
+  canSave, folderCounts, account, onSignIn, onBack, onSave,
 }) {
   const [uploadLink, setUploadLink] = useState("");
   const [mode, setMode] = useState(() => { try { return localStorage.getItem("fs-drive-mode") || "move"; } catch { return "move"; } });
@@ -40,7 +41,10 @@ export default function SavePhotos({
   return (
     <section className="card">
       <h1 className="card-title">Save into folders</h1>
-      <p className="card-sub">Each person gets a folder. Photos with {GROUP_MIN_PEOPLE} or more people go into a <strong>{GROUP_FOLDER}</strong> folder.</p>
+      <p className="card-sub">
+        Each person gets a folder. Photos with {GROUP_MIN_PEOPLE} or more people go into <strong>{GROUP_FOLDER}</strong>,
+        and photos where nobody you named was found go into <strong>{UNKNOWN_FOLDER}</strong>.
+      </p>
 
       <ul className="people-list">
         {people.map(([name, v]) => {
@@ -60,7 +64,24 @@ export default function SavePhotos({
             <span className="muted small">{groupPhotoCount} photo{groupPhotoCount === 1 ? "" : "s"}</span>
           </li>
         )}
+        {unknownCount > 0 && unknownFolder && (
+          <li>
+            <span className="group-icon" aria-hidden="true">❔</span>
+            <span className="people-name">{UNKNOWN_FOLDER}</span>
+            <span className="muted small">{unknownCount} photo{unknownCount === 1 ? "" : "s"}</span>
+          </li>
+        )}
       </ul>
+
+      {unknownCount > 0 && (
+        <label className="check unknown-option">
+          <input type="checkbox" checked={unknownFolder} onChange={e => setUnknownFolder(e.target.checked)} />
+          <span>
+            Put the {unknownCount} photo{unknownCount === 1 ? "" : "s"} where no named person was found into
+            a <strong>{UNKNOWN_FOLDER}</strong> folder
+          </span>
+        </label>
+      )}
 
       {groupPhotoCount > 0 && (
         <fieldset className="group-option">
