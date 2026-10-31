@@ -6,6 +6,7 @@ import { GROUP_FOLDER, GROUP_MIN_PEOPLE, UNKNOWN_FOLDER } from "../lib/constants
 const MODES_DRIVE = [
   ["copy", "Copy (recommended)", "Each folder gets its own real copy of the photo. Uses Drive storage for the copies."],
   ["shortcut", "Shortcuts only", "Each folder gets a shortcut to the photo. Uses no extra storage, but shortcuts can't be downloaded as files."],
+  ["move", "Move (no extra storage)", "Each photo is moved out of the main folder into its person's folder; if it has several people, the other folders get a shortcut. The main folder will no longer contain the sorted photos."],
 ];
 const MODES_UPLOAD = [
   ["once", "Upload once (recommended)", "Each photo is uploaded once; other people's folders get a shortcut to it."],
@@ -104,13 +105,15 @@ export default function SavePhotos({
             <div>
               <h2 className="dest-title">Save in Google Drive</h2>
               <p className="muted small">Creates <strong>Sorted by Face</strong> inside “{driveFolder.name}”, with a folder per person.</p>
-              <p className="safe small">✓ Your original photos are not moved, renamed or changed.</p>
+              {mode === "move"
+                ? <p className="note warn small">The photos will be moved out of “{driveFolder.name}” into the person folders.</p>
+                : <p className="safe small">✓ Your original photos are not moved, renamed or changed.</p>}
               {!driveFolder.canAdd && <p className="note warn small">You may not have permission to add folders here.</p>}
             </div>
             {modeChoice}
             <div className="row end">
               <button className="btn btn-primary" disabled={!canSave} onClick={() => onSave("drive-here", null, mode)}>
-                {mode === "shortcut" ? "Add shortcuts" : "Copy into folders"}
+                {mode === "shortcut" ? "Add shortcuts" : mode === "move" ? "Move into folders" : "Copy into folders"}
               </button>
             </div>
           </div>

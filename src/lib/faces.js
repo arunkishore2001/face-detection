@@ -55,6 +55,7 @@ export function getPool() {
 }
 
 async function toReadableBlob(blob, name) {
+  if (/^image\/(jpeg|png|webp|gif|bmp)$/.test(blob.type)) return blob; // e.g. Drive's JPEG preview of a HEIC photo
   if (/\.(heic|heif)$/i.test(name) || /hei[cf]/i.test(blob.type)) {
     const { default: heic2any } = await import("heic2any");
     const out = await heic2any({ blob, toType: "image/jpeg", quality: 0.9 });
@@ -65,10 +66,12 @@ async function toReadableBlob(blob, name) {
 
 /**
  * Finds faces in every photo.
- * photos: [{ name, getBlob: () => Promise<Blob> }]
+ * photos: [{ name, getBlob: () => Promise<Blob>, getScanBlob?: () => Promise<Blob> (a smaller copy, if there is one),
+ *            cacheKey?: string }]
+ * cache: optional { get(key), put(key, result) } so photos scanned before a page refresh are not scanned again.
  * Returns { photos: [{ name, preview, failed }], faces: [{ id, photo, crop, embedding }] }
  */
-export async function scanPhotos(photos, { onProgress, signal }) {
+export async function scanPhotos(photos, { onProgress, signal, cache }) {
   const pool = await getPool();
   const results = new Array(photos.length);
   let next = 0, done = 0;
@@ -76,12 +79,17 @@ export async function scanPhotos(photos, { onProgress, signal }) {
   async function runner() {
     while (next < photos.length && !signal?.aborted) {
       const i = next++;
-      try {
-        const blob = await toReadableBlob(await photos[i].getBlob(), photos[i].name);
-        results[i] = await pool.process(blob);
-      } catch (err) {
-        console.warn("Could not read", photos[i].name, err);
-        results[i] = { faces: [], preview: null, failed: true };
+      const key = photos[i].cacheKey;
+      results[i] = key && await cache?.get(key); // scanned before a page refresh
+      if (!results[i]) {
+        try {
+          const blob = await toReadableBlob(await (photos[i].getScanBlob ?? photos[i].getBlob)(), photos[i].name);
+          results[i] = await pool.process(blob);
+          if (key) await cache?.put(key, results[i]);
+        } catch (err) {
+          console.warn("Could not read", photos[i].name, err);
+          results[i] = { faces: [], preview: null, failed: true }; // not cached, so it is tried again next time
+        }
       }
       done++;
       onProgress?.({ done, total: photos.length, current: photos[i].name, preview: results[i].preview });

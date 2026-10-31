@@ -19,14 +19,15 @@ async function eachPhoto(assignments, photos, parallel, onProgress, work) {
   await Promise.all(Array.from({ length: parallel }, runner));
 }
 
-// For uploads from this computer: the folder the single uploaded file goes into; its other folders get shortcuts.
+// For "move" and "once": the one folder that gets the real file; its other folders get shortcuts.
 const mainFolder = names => (names.includes(GROUP_FOLDER) ? GROUP_FOLDER : names[0]);
 
 /**
- * Saves into "<parent>/Sorted by Face/<folder>/". Original photos are only read, never moved or changed.
+ * Saves into "<parent>/Sorted by Face/<folder>/". Original photos are only read, except in mode "move".
  * assignments: [{ photo, names: string[] }]
- * Photos already in Drive:  mode "copy" = a real copy in each folder, "shortcut" = a shortcut in each folder.
- * Photos from this computer: mode "once" = uploaded once + shortcuts in other folders, "copy" = uploaded to each folder.
+ * Photos already in Drive:  mode "copy" = a real copy in each folder, "shortcut" = a shortcut in each folder,
+ *                           "move" = the original is moved into one folder + shortcuts in the others.
+ * Photos from this computer or Google Photos: mode "once" = uploaded once + shortcuts in other folders, "copy" = uploaded to each folder.
  */
 export async function saveToDrive({ parentId, assignments, photos, mode, onProgress }) {
   const writer = await DriveWriter.create(parentId);
@@ -34,16 +35,21 @@ export async function saveToDrive({ parentId, assignments, photos, mode, onProgr
   for (const name of new Set(assignments.flatMap(a => a.names))) await writer.target(name);
 
   await eachPhoto(assignments, photos, DRIVE_PARALLEL, onProgress, async (p, names) => {
-    if (p.driveId) {
+    if (p.driveId && mode === "move") {
+      const main = mainFolder(names);
+      await writer.move(p.driveId, p.name, main);
+      for (const name of names) if (name !== main) await writer.shortcut(p.driveId, p.name, name);
+    } else if (p.driveId) {
       for (const name of names) {
         if (mode === "shortcut") await writer.shortcut(p.driveId, p.name, name);
         else await writer.copy(p.driveId, p.name, name);
       }
     } else if (mode === "copy") {
-      for (const name of names) await writer.upload(p.file, p.name, name);
+      const file = p.file ?? await p.getBlob();
+      for (const name of names) await writer.upload(file, p.name, name);
     } else {
       const main = mainFolder(names);
-      const fileId = await writer.upload(p.file, p.name, main);
+      const fileId = await writer.upload(p.file ?? await p.getBlob(), p.name, main);
       if (fileId) for (const name of names) if (name !== main) await writer.shortcut(fileId, p.name, name);
     }
   });

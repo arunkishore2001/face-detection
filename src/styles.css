@@ -248,3 +248,5 @@ input[type=url]:focus, input[type=text]:focus { border-color: var(--accent); out
 .viewer img { max-height: 100%; border-radius: 8px; }
 
 .footer { text-align: center; color: var(--muted); font-size: 13px; padding: 24px 20px calc(24px + env(safe-area-inset-bottom, 0px)); }
+
+.resume { margin-bottom: 16px; }

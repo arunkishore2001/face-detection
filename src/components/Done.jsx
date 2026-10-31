@@ -13,7 +13,9 @@ export default function Done({ result, onAgain, onBack }) {
       <p className="card-sub">{WHERE[result.kind](result)}</p>
       <p className="muted">
         {result.photoCount} photo{result.photoCount === 1 ? "" : "s"} sorted.
-        {" Your original photos were not changed."}
+        {result.mode === "move"
+          ? " The photos were moved into these folders; photos with several people have shortcuts in the other folders."
+          : " Your original photos were not changed."}
         {result.mode === "shortcut" && " The folders contain shortcuts to them."}
       </p>
       <ul className="count-list">
@@ -23,7 +25,7 @@ export default function Done({ result, onAgain, onBack }) {
       </ul>
       <div className="actions center">
         {result.url && <a className="btn btn-primary" href={result.url} target="_blank" rel="noopener noreferrer">Open in Google Drive ↗</a>}
-        <button className="btn btn-secondary" onClick={onBack}>Change names / save again</button>
+        {onBack && <button className="btn btn-secondary" onClick={onBack}>Change names / save again</button>}
         <button className="btn btn-ghost" onClick={onAgain}>Sort more photos</button>
       </div>
       <p className="muted small">Names are remembered in this browser, so these people are recognised next time.</p>

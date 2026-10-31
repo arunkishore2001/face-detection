@@ -5,6 +5,7 @@ const isImage = f => f.type.startsWith("image/") || IMAGE_RE.test(f.name);
 
 export default function ChoosePhotos({
   source, setSource, account, onSignIn, driveLink, setDriveLink, localFiles, setLocalFiles, onNext,
+  photosAllowed, onAllowPhotos, photosPick, onChoosePhotos, onClearPhotos, picking,
 }) {
   const [dragging, setDragging] = useState(false);
   const filesInput = useRef(null);
@@ -18,7 +19,17 @@ export default function ChoosePhotos({
     });
   }
 
-  const ready = source === "drive" ? account && driveLink.trim() : localFiles.length > 0;
+  const ready = source === "drive" ? account && driveLink.trim()
+    : source === "photos" ? account && photosPick?.items.length > 0 && !picking
+      : localFiles.length > 0;
+
+  function openPicker() {
+    const win = window.open("", "google-photos-picker", "popup,width=1100,height=800");
+    if (!win) return onChoosePhotos({ closed: true, close() {} }); // blocked: reported as an error
+    win.document.title = "Google Photos";
+    win.document.body.textContent = "Opening Google Photos…";
+    onChoosePhotos(win);
+  }
 
   return (
     <section className="card">
@@ -42,6 +53,14 @@ export default function ChoosePhotos({
           <span className="choice-title">This computer or phone</span>
           <span className="choice-text">Pick photos or a whole folder from this device.</span>
         </button>
+        <button role="radio" aria-checked={source === "photos"}
+                className={`choice ${source === "photos" ? "selected" : ""}`} onClick={() => setSource("photos")}>
+          <span className="choice-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="28" height="28"><path d="M12 12V3a5 5 0 0 1 0 9zM12 12h9a5 5 0 0 1-9 0zM12 12v9a5 5 0 0 1 0-9zM12 12H3a5 5 0 0 1 9 0z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /></svg>
+          </span>
+          <span className="choice-title">Google Photos</span>
+          <span className="choice-text">Choose photos from your Google Photos. The folders are uploaded to Google Drive.</span>
+        </button>
       </div>
 
       {source === "drive" && (
@@ -60,6 +79,42 @@ export default function ChoosePhotos({
                      value={driveLink} onChange={e => setDriveLink(e.target.value)} />
               <span className="field-help">In Drive, open the folder and copy the address from the browser bar, or use Share → Copy link.</span>
             </label>
+          )}
+        </div>
+      )}
+
+      {source === "photos" && (
+        <div className="panel">
+          {!googleConfigured ? (
+            <p className="note warn">Google sign-in isn't set up for this site yet (missing <code>GOOGLE_CLIENT_ID</code>).</p>
+          ) : !account ? (
+            <div className="signin-box">
+              <p>Sign in so Face Sorter can read the photos you choose and save the folders to your Drive.</p>
+              <button className="btn btn-primary" onClick={onSignIn}>Sign in with Google</button>
+            </div>
+          ) : !photosAllowed ? (
+            <div className="signin-box">
+              <p>Allow Face Sorter to see the photos you choose in Google Photos. It can't see anything else there.</p>
+              <button className="btn btn-primary" onClick={onAllowPhotos}>Allow Google Photos access</button>
+            </div>
+          ) : picking ? (
+            <div className="signin-box">
+              <p>Choose your photos in the Google Photos window, then click <strong>Done</strong> there.</p>
+              <div className="spinner" aria-hidden="true" />
+            </div>
+          ) : (
+            <div className="signin-box">
+              <p>A Google Photos window opens where you can select photos or whole albums.</p>
+              <button className="btn btn-secondary" onClick={openPicker}>
+                {photosPick ? "Choose different photos" : "Choose in Google Photos"}
+              </button>
+            </div>
+          )}
+          {photosPick && !picking && (
+            <div className="row between selected-files">
+              <span><strong>{photosPick.items.length}</strong> photo{photosPick.items.length === 1 ? "" : "s"} chosen in Google Photos</span>
+              <button className="btn btn-link danger" onClick={onClearPhotos}>Clear</button>
+            </div>
           )}
         </div>
       )}

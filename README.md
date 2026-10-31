@@ -2,7 +2,7 @@
 
 Sort photos into one folder per person, entirely in the browser.
 
-1. **Choose photos**: a Google Drive folder link, or photos/folders from this device.
+1. **Choose photos**: a Google Drive folder link, photos chosen in Google Photos, or photos/folders from this device.
 2. **Name the faces**: every different face is shown as a card; type a name (leave strangers empty).
 3. **Save**: one folder per person. Photos with **3 or more people** can also go into a **Group Photos** folder.
    Destinations: inside the Drive folder (`Sorted by Face/…`), upload to another Drive folder,
@@ -33,7 +33,10 @@ In https://console.cloud.google.com, in your Face Sorter project (Drive API alre
      - `https://YOUR-APP.vercel.app` (add after the first deploy)
    - No redirect URIs are needed.
 2. Copy the **Client ID** (ends in `.apps.googleusercontent.com`). It is not secret.
-3. **Audience**: add users as test users, or click **Publish app** so anyone (up to 100 users without
+3. **Google Photos** (only for the Google Photos source): in **APIs & Services → Library**, enable the
+   **Google Photos Picker API**, and in **Data Access** add the scope
+   `https://www.googleapis.com/auth/photospicker.mediaitems.readonly`.
+4. **Audience**: add users as test users, or click **Publish app** so anyone (up to 100 users without
    Google verification) can sign in after the "unverified app" warning.
 
 ## Deploy to Vercel
@@ -72,4 +75,10 @@ src/components/         the three steps, progress, dialogs
 - Keep the tab open while it works. Speed is roughly 0.2–0.5 s per photo on a laptop.
 - The Google token lasts one hour; very long jobs may ask you to sign in again.
 - Google Drive copies count toward the user's storage.
+- Google Photos can't copy into Drive directly, so photos chosen there are downloaded (a 1600px version for
+  finding faces, the original when saving) and uploaded into the person folders. The picker allows up to about
+  2000 photos at a time.
+- Drive photos are scanned from Drive's 1600px preview (much smaller than the original); the full original is
+  downloaded only if no preview is available. **Move** mode uses no extra storage but takes the photos out of the
+  original folder.
 - HEIC (iPhone) photos are converted in the browser before scanning.

@@ -1,6 +1,8 @@
 // Google sign-in (Google Identity Services) and the Google Drive calls the app needs.
 const CLIENT_ID = __GOOGLE_CLIENT_ID__; // set from GOOGLE_CLIENT_ID at build time (vite.config.js)
 const SCOPE = "https://www.googleapis.com/auth/drive";
+// asked for only when the user chooses Google Photos as the source
+export const PHOTOS_SCOPE = "https://www.googleapis.com/auth/photospicker.mediaitems.readonly";
 const API = "https://www.googleapis.com/drive/v3";
 const UPLOAD = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id";
 const FOLDER = "application/vnd.google-apps.folder";
@@ -34,14 +36,16 @@ function saveToken(t) {
 
 export const hasValidToken = () => Boolean(token && token.expiresAt > Date.now() + 60_000);
 
-/** Opens Google's sign-in popup. Must be called from a click. */
-export async function signIn(prompt = "") {
+export const hasPhotosAccess = () => Boolean(token?.scope?.split(" ").includes(PHOTOS_SCOPE));
+
+/** Opens Google's sign-in popup. Must be called from a click. `photos` also asks for Google Photos access. */
+export async function signIn(prompt = "", photos = hasPhotosAccess()) {
   if (!googleConfigured) throw new Error("Google sign-in is not set up (GOOGLE_CLIENT_ID is missing).");
   await loadGis();
   const response = await new Promise((resolve, reject) => {
     const client = window.google.accounts.oauth2.initTokenClient({
       client_id: CLIENT_ID,
-      scope: SCOPE,
+      scope: photos ? `${SCOPE} ${PHOTOS_SCOPE}` : SCOPE,
       callback: r => (r.error ? reject(new Error(r.error_description || r.error)) : resolve(r)),
       error_callback: e => reject(new Error(e.type === "popup_closed" ? "Sign-in was cancelled." : e.message || e.type)),
     });
@@ -50,7 +54,10 @@ export async function signIn(prompt = "") {
   if (!window.google.accounts.oauth2.hasGrantedAllScopes(response, SCOPE)) {
     throw new Error("Please tick the Google Drive permission so Face Sorter can read and sort your photos.");
   }
-  saveToken({ value: response.access_token, expiresAt: Date.now() + response.expires_in * 1000 });
+  if (photos && !window.google.accounts.oauth2.hasGrantedAllScopes(response, PHOTOS_SCOPE)) {
+    throw new Error("Please tick the Google Photos permission so Face Sorter can read the photos you pick.");
+  }
+  saveToken({ value: response.access_token, expiresAt: Date.now() + response.expires_in * 1000, scope: response.scope });
   return getAccount();
 }
 
@@ -59,13 +66,13 @@ export function signOut() {
   saveToken(null);
 }
 
-async function authFetch(url, opts = {}, retry = true) {
+export async function authFetch(url, opts = {}, retry = true) {
   if (!hasValidToken()) {
-    try { await signIn(""); } catch { throw new Error("Your Google sign-in expired. Click “Sign in with Google” again."); }
+    try { await signIn("", hasPhotosAccess()); } catch { throw new Error("Your Google sign-in expired. Click “Sign in with Google” again."); }
   }
   const res = await fetch(url, { ...opts, headers: { ...opts.headers, Authorization: `Bearer ${token.value}` } });
   if (res.status === 401 && retry) {
-    saveToken(null);
+    saveToken({ ...token, expiresAt: 0 }); // keep its scopes so signing in again asks for the same access
     return authFetch(url, opts, false);
   }
   if (!res.ok) {
@@ -106,7 +113,7 @@ async function children(folderId, extra = "") {
   do {
     const params = new URLSearchParams({
       q: `'${folderId}' in parents and trashed = false${extra}`,
-      fields: "nextPageToken, files(id, name, mimeType, size)",
+      fields: "nextPageToken, files(id, name, mimeType, size, thumbnailLink)",
       pageSize: "1000", supportsAllDrives: "true", includeItemsFromAllDrives: "true",
     });
     if (pageToken) params.set("pageToken", pageToken);
@@ -141,6 +148,28 @@ export async function listPhotos(folderId, onFound) {
 
 export const downloadFile = id =>
   authFetch(`${API}/files/${id}?alt=media&supportsAllDrives=true`).then(r => r.blob());
+
+const SCAN_SIZE = 1600; // matches MAX_SIDE in faceWorker.js: bigger photos are shrunk to this anyway
+let thumbsWork = null;  // null = not tried yet; false = Drive previews can't be fetched here, so stop trying
+
+/**
+ * The photo for face finding: Drive's resized preview (a fraction of the download) when it is available,
+ * otherwise the full original.
+ */
+export async function downloadForScan(file) {
+  if (file.thumbnailLink && thumbsWork !== false) {
+    try {
+      const res = await fetch(file.thumbnailLink.replace(/=s\d+[^/]*$/, `=s${SCAN_SIZE}`));
+      const blob = res.ok && await res.blob();
+      if (blob?.type.startsWith("image/")) {
+        thumbsWork = true;
+        return blob;
+      }
+    } catch { /* fall back to the original */ }
+    if (thumbsWork === null) thumbsWork = false;
+  }
+  return downloadFile(file.id);
+}
 
 /** Creates "<parent>/Sorted by Face/<name>/" folders and puts photos into them. */
 export class DriveWriter {
@@ -191,6 +220,22 @@ export class DriveWriter {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: fileName, mimeType: SHORTCUT, shortcutDetails: { targetId: fileId }, parents: [t.id] }),
+    });
+    t.existing.add(fileName);
+  }
+
+  /** Move a photo that is already in Drive out of its current folder(s) into the person's folder. */
+  async move(fileId, fileName, person) {
+    const t = await this.target(person);
+    if (t.existing.has(fileName)) return;
+    const { parents = [] } = await json(`${API}/files/${fileId}?fields=parents&supportsAllDrives=true`);
+    const params = new URLSearchParams({ addParents: t.id, supportsAllDrives: "true", fields: "id" });
+    const remove = parents.filter(id => id !== t.id);
+    if (remove.length) params.set("removeParents", remove.join(","));
+    await json(`${API}/files/${fileId}?${params}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
     });
     t.existing.add(fileName);
   }
