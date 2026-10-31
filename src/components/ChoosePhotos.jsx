@@ -101,6 +101,15 @@ export default function ChoosePhotos({
             <div className="signin-box">
               <p>Choose your photos in the Google Photos window, then click <strong>Done</strong> there.</p>
               <div className="spinner" aria-hidden="true" />
+              <div className="row center">
+                {picking.url && (
+                  <button className="btn btn-secondary"
+                          onClick={() => window.open(picking.url, "google-photos-picker", "popup,width=1100,height=800")}>
+                    Open the Google Photos window again
+                  </button>
+                )}
+                <button className="btn btn-ghost" onClick={picking.cancel}>Cancel</button>
+              </div>
             </div>
           ) : (
             <div className="signin-box">

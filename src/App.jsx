@@ -52,7 +52,7 @@ export default function App() {
   const [localFiles, setLocalFiles] = useState([]);
   const [photosPick, setPhotosPick] = useState(null); // photos chosen in the Google Photos picker
   const [photosAllowed, setPhotosAllowed] = useState(hasPhotosAccess);
-  const [picking, setPicking] = useState(false);
+  const [picking, setPicking] = useState(null); // while the Google Photos window is open: { url, cancel }
   const [driveFolder, setDriveFolder] = useState(null);
   const [photos, setPhotos] = useState([]);
   const [faces, setFaces] = useState([]);
@@ -160,14 +160,19 @@ export default function App() {
   // `win` is opened during the click, so the browser doesn't block it as a popup
   async function choosePhotos(win) {
     setError(null);
-    setPicking(true);
+    const controller = new AbortController();
+    const cancel = () => controller.abort();
+    setPicking({ url: null, cancel });
     try {
-      setPhotosPick(await pickPhotos(win));
+      setPhotosPick(await pickPhotos(win, {
+        signal: controller.signal,
+        onOpen: url => setPicking({ url, cancel }),
+      }));
     } catch (e) {
-      if (!win.closed) win.close();
-      setError(e.message);
+      try { win.close(); } catch { /* already gone */ }
+      if (e.name !== "AbortError") setError(e.message);
     } finally {
-      setPicking(false);
+      setPicking(null);
     }
   }
 

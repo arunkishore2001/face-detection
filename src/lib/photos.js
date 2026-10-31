@@ -53,27 +53,35 @@ class Selection {
   }
 }
 
-/** Shows the Google Photos picker in `win` (opened during the click) and waits until the user clicks Done. */
-export async function pickPhotos(win) {
+/**
+ * Shows the Google Photos picker in `win` (opened during the click) and waits until the user clicks Done.
+ * onOpen(url) gets the picker's address, so it can be opened again if the window gets lost.
+ * Google's page cuts the link to its window (Cross-Origin-Opener-Policy), so `win.closed` reads true even
+ * while it is open: only the session tells us when the user is done, and `signal` cancels the wait.
+ */
+export async function pickPhotos(win, { signal, onOpen } = {}) {
   const session = await json(`${API}/sessions`, {
     method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
   });
   if (win.closed) throw new Error("Your browser blocked the Google Photos window. Allow pop-ups for this site and try again.");
-  win.location.href = `${session.pickerUri}/autoclose`;
+  const url = `${session.pickerUri}/autoclose`;
+  win.location.href = url;
+  onOpen?.(url);
 
   const interval = Math.max(seconds(session.pollingConfig?.pollInterval), 2000);
   const deadline = Date.now() + (seconds(session.pollingConfig?.timeoutIn) || 30 * 60_000);
-  let checksAfterClose = 0;
   while (Date.now() < deadline) {
     await sleep(interval);
+    if (signal?.aborted) {
+      authFetch(`${API}/sessions/${session.id}`, { method: "DELETE" }).catch(() => {});
+      throw new DOMException("Cancelled", "AbortError");
+    }
     const s = await json(`${API}/sessions/${session.id}`);
     if (s.mediaItemsSet) {
       const items = await listItems(session.id);
       if (!items.length) throw new Error("No photos were chosen (videos are skipped).");
       return new Selection(session.id, items);
     }
-    // the window also closes itself after Done, so give the answer a moment to arrive before giving up
-    if (win.closed && ++checksAfterClose > 2) throw new Error("The Google Photos window was closed before choosing photos.");
   }
   throw new Error("Choosing photos took too long. Please try again.");
 }
