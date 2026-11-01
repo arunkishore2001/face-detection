@@ -49,7 +49,13 @@ export function getPool() {
   if (!poolPromise) {
     const size = Math.max(1, Math.min(3, Math.floor((navigator.hardwareConcurrency || 2) / 2)));
     const pool = new Pool(size);
-    poolPromise = pool.init().then(() => pool, err => { poolPromise = null; throw err; });
+    poolPromise = pool.init().then(() => pool, err => {
+      poolPromise = null;
+      pool.workers.forEach(w => w.terminate()); // a fresh pool is made on the next try
+      throw /failed to fetch|networkerror|load failed/i.test(err.message)
+        ? new Error("Could not load the face-finding files. Check your internet connection (or turn off ad blockers for this site) and click Find faces again.")
+        : err;
+    });
   }
   return poolPromise;
 }

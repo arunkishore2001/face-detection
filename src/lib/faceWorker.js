@@ -16,10 +16,28 @@ async function init(base) {
   ort.env.wasm.numThreads = 1;
   ort.env.logLevel = "error";
   const opts = { executionProviders: ["wasm"], graphOptimizationLevel: "all", logSeverityLevel: 3 };
-  [detector, recognizer] = await Promise.all([
-    ort.InferenceSession.create(`${base}models/face_detection_yunet.onnx`, opts),
-    ort.InferenceSession.create(`${base}models/face_recognition_sface.onnx`, opts),
+  // download the models ourselves so a dropped connection is retried (the face model is ~39 MB)
+  const [det, rec] = await Promise.all([
+    fetchModel(`${base}models/face_detection_yunet.onnx`),
+    fetchModel(`${base}models/face_recognition_sface.onnx`),
   ]);
+  [detector, recognizer] = await Promise.all([
+    ort.InferenceSession.create(det, opts),
+    ort.InferenceSession.create(rec, opts),
+  ]);
+}
+
+async function fetchModel(url, tries = 4) {
+  for (let i = 1; ; i++) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return new Uint8Array(await res.arrayBuffer());
+    } catch (err) {
+      if (i >= tries) throw new Error(`Could not download the face-finding model (${err.message}). Check your internet connection and try again.`);
+      await new Promise(r => setTimeout(r, 1500 * i));
+    }
+  }
 }
 
 async function loadBitmap(blob) {
